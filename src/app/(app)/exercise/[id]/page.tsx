@@ -183,7 +183,7 @@ export default function ExercisePage({ params }: { params: Promise<{ id: string 
       </div>
 
       {/* особые шаги ритуала */}
-      {step === 0 && <Twister />}
+      {(step === 0 || (ex.category === 'warmup' && r.kind !== 'ritual')) && <Twister />}
 
       {ex.instructions.length > 0 && step !== 3 && (
         <ol className={`${s.instr} card card-flat`}>

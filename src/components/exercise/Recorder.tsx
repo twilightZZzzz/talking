@@ -115,7 +115,7 @@ export function Recorder({
         >
           <svg viewBox="0 0 100 100" className={s.ring} aria-hidden>
             <circle cx="50" cy="50" r={R} fill="none" stroke="var(--line)" strokeWidth="6" />
-            <circle
+            {p > 0 && <circle
               cx="50"
               cy="50"
               r={R}
@@ -125,7 +125,7 @@ export function Recorder({
               strokeLinecap="round"
               strokeDasharray={`${C * p} ${C}`}
               transform="rotate(-90 50 50)"
-            />
+            />}
           </svg>
           <span className={s.recCore}>{recording ? <Icon name="stop" size={30} /> : <Icon name="mic" size={30} />}</span>
         </button>

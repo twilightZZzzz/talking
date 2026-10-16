@@ -75,9 +75,9 @@ export default function TodayPage() {
       </section>
 
       <section className="stack">
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <h2>Ритуал дня</h2>
-          <div className="seg" role="group" aria-label="Режим" style={{ minWidth: 210 }}>
+        <h2>Ритуал дня</h2>
+        <div>
+          <div className="seg" role="group" aria-label="Режим">
             <button aria-pressed={mode === 'full'} onClick={() => patchSession({ mode: 'full' })}>
               Утро · 15
             </button>

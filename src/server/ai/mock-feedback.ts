@@ -132,7 +132,11 @@ export function mockFeedback(i: AnalyzeFeedbackInput): Feedback {
   let challengeComment = i.challenge ? 'По записи это не проверить.' : '';
   if (i.challenge?.assessable) {
     const t = i.challenge.targets;
-    if (t.includes('fillers')) challengeDone = m.fpm <= 3;
+    const id = i.challenge.id;
+    // челленджи с конкретным счётом проверяем по нему, остальные — по целевой проблеме
+    if (id === 'three-pauses') challengeDone = m.pauses.length >= 3;
+    else if (id === 'no-korotche') challengeDone = !m.fillers.some((f) => !f.doubtful && /^(короче|типа)$/.test(f.word));
+    else if (t.includes('fillers')) challengeDone = m.fpm <= 3;
     else if (t.includes('slow_start')) challengeDone = isConclusion;
     else if (t.includes('few_pauses')) challengeDone = m.pauses_per_min >= 2;
     else if (t.includes('pace_fast') || t.includes('pace_slow')) challengeDone = m.wpm >= 120 && m.wpm <= 150;

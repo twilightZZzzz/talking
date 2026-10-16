@@ -5,7 +5,6 @@ import { applyOp } from '@/server/repo/apply-op';
 import { ensureProfile } from '@/server/repo/ensure-profile';
 import { formatZodError, readOpId, syncBodySchema, syncOpSchema } from '@/server/repo/sync-schema';
 
-export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   const auth = await requireUser();

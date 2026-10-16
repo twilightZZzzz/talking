@@ -5,7 +5,6 @@ import { requireUser } from '@/server/auth';
 import { ensureProfile } from '@/server/repo/ensure-profile';
 import { runLegacyImport, type LegacyParsed } from '@/server/repo/legacy-import';
 
-export const runtime = 'nodejs';
 
 const bodySchema = z.object({
   code: z.string().min(1, 'Вставь код экспорта из старой версии').max(2_000_000, 'Код слишком длинный'),

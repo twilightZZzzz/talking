@@ -4,7 +4,6 @@ import { ensureProfile } from '@/server/repo/ensure-profile';
 import { rowToAchievement, rowToActivity, rowToCoachPlan, rowToProblemEvent, rowToSession } from '@/server/repo/mappers';
 import { fetchAll, todayIn } from '@/server/repo/queries';
 
-export const runtime = 'nodejs';
 
 // takes для экспорта: с transcript и feedback, без words и служебных полей
 const TAKE_EXPORT_COLUMNS =

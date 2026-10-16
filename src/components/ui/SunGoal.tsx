@@ -37,7 +37,7 @@ export function SunGoal({ minutes, goal, size = 132 }: { minutes: number; goal: 
         stroke="var(--sun-soft)"
         strokeWidth="9"
       />
-      <circle
+      {p > 0 && <circle
         cx="60"
         cy="60"
         r={r}
@@ -48,7 +48,7 @@ export function SunGoal({ minutes, goal, size = 132 }: { minutes: number; goal: 
         strokeDasharray={`${c * p} ${c}`}
         transform="rotate(-90 60 60)"
         style={{ transition: 'stroke-dasharray .8s ease' }}
-      />
+      />}
       {over > 0 && (
         <circle
           cx="60"

@@ -14,7 +14,6 @@ import {
 } from '@/server/repo/mappers';
 import { fetchAll } from '@/server/repo/queries';
 
-export const runtime = 'nodejs';
 
 export async function GET() {
   const auth = await requireUser();
