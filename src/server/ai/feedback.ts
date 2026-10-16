@@ -176,7 +176,18 @@ const round1 = (n: number) => Math.round(n * 10) / 10;
 const cut = (s: string, n = 400) => (s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s).trim();
 
 /** Пост-валидация: цитаты только из транскрипта, структура и ограничения по правилам промпта */
+const CODE_RE = /\s*\(?\b(fillers|pace_fast|pace_slow|few_pauses|slow_start|detours|frame_gaps|frame_order|run_on|weak_ending|vague|repetitions)\b\)?/g;
+/** Модель иногда вставляет коды проблем в текст для человека — вычищаем */
+const stripCodes = (t: string) => t.replace(CODE_RE, '').replace(/\s{2,}/g, ' ').trim();
+
 export function sanitizeFeedback(fb: Feedback, i: AnalyzeFeedbackInput): Feedback {
+  fb = {
+    ...fb,
+    main_issue: stripCodes(fb.main_issue),
+    next_task: stripCodes(fb.next_task),
+    clarity_reason: stripCodes(fb.clarity_reason),
+    vs_previous: fb.vs_previous ? stripCodes(fb.vs_previous) : fb.vs_previous,
+  };
   const tn = normalizeText(i.transcript);
   const q = (s: string) => (quoteInTranscript(s, tn) ? clipWords(s.trim(), 14) : '');
   const short = i.metrics.word_count < MIN_WORDS;
@@ -202,6 +213,8 @@ export function sanitizeFeedback(fb: Feedback, i: AnalyzeFeedbackInput): Feedbac
   const seen = new Map<AiCode, Feedback['issues'][number]>();
   for (const it of fb.issues) {
     if (!(AI_CODES as readonly string[]).includes(it.code)) continue;
+    // без каркаса нечего «пропускать» и нечего путать по порядку
+    if (!i.frame && (it.code === 'frame_gaps' || it.code === 'frame_order')) continue;
     const prev = seen.get(it.code as AiCode);
     if (!prev || it.severity > prev.severity) {
       seen.set(it.code as AiCode, { code: it.code, severity: it.severity, quote: q(it.quote), comment: cut(it.comment) });
