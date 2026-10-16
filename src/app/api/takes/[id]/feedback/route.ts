@@ -12,6 +12,25 @@ import { failTake, getTakeRow, LOCK_FEEDBACK_MS, loadProblemData, rowToTake } fr
 
 export const maxDuration = 300;
 
+/** Активность дубля (минуты/XP). Идемпотентно: id = id дубля. */
+async function upsertTakeActivity(db: SupabaseClient, userId: string, row: Record<string, unknown>) {
+  const m = row.metrics as SpeechMetrics | null;
+  const f = row.feedback as Feedback | null;
+  const { error } = await db.from('activities').upsert(
+    {
+      id: row.id as string,
+      user_id: userId,
+      date: row.session_date as string,
+      kind: 'take',
+      ref: row.id as string,
+      duration_s: Math.round(Number(row.duration_s) || m?.duration_s || 0),
+      meta: { fpm: m?.fpm ?? 0, wpm: m?.wpm ?? 0, fillers: m?.fillers_count ?? 0, clarity: f?.clarity ?? null },
+    },
+    { onConflict: 'id' },
+  );
+  if (error && error.code !== '23505') throw new Error(`activity: ${error.message}`);
+}
+
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const a = await requireUser();
   if ('error' in a) return a.error;
@@ -21,7 +40,11 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
 
   const row = await getTakeRow(db, user.id, id);
   if (!row) return fail('Дубль не найден.', 404);
-  if (row.status === 'done') return ok(rowToTake(row));
+  if (row.status === 'done') {
+    // добиваем активность, если прошлый запрос оборвался после сохранения разбора
+    await upsertTakeActivity(db, user.id, row).catch((e) => console.error('[feedback] activity', e));
+    return ok(rowToTake(row));
+  }
   if (!row.transcript || !row.words || !row.metrics) {
     return fail('Сначала нужно распознать речь этого дубля.', 409);
   }
@@ -114,19 +137,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
 
     await saveAiEvents(db, user.id, id, feedback, words);
 
-    const meta = { fpm: metrics.fpm, wpm: metrics.wpm, fillers: metrics.fillers_count, clarity: feedback.clarity };
-    await db.from('activities').upsert(
-      {
-        id,
-        user_id: user.id,
-        date: claimed.session_date,
-        kind: 'take',
-        ref: id,
-        duration_s: Math.round(Number(claimed.duration_s) || metrics.duration_s || 0),
-        meta,
-      },
-      { onConflict: 'id' },
-    );
+    await upsertTakeActivity(db, user.id, saved);
 
     if (claimed.audio_path) {
       const { error: rmErr } = await supabaseAdmin().storage.from('audio').remove([claimed.audio_path]);

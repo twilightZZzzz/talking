@@ -10,6 +10,7 @@ import { levelFor } from '@/domain/gamification/levels';
 import { buildProfile } from '@/domain/problems/events';
 import { CONTENT_VERSION } from '@/domain/content';
 import type { ProblemProfile } from '@/domain/types';
+import { supabaseBrowser } from './supabase-browser';
 
 const CACHE_KEY = 'rech-state-v2';
 const QUEUE_KEY = 'rech-queue-v2';
@@ -115,6 +116,8 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
   const flushing = useRef(false);
   const toastId = useRef(0);
   const announced = useRef<Set<string>>(new Set());
+  // ключи кэша и очереди привязаны к пользователю, чтобы данные не перетекали между аккаунтами
+  const keys = useRef({ cache: CACHE_KEY, queue: QUEUE_KEY });
 
   const toast = useCallback((text: string, kind: ToastKind = 'ink') => {
     const id = ++toastId.current;
@@ -135,16 +138,28 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
       // применяем неотправленные операции поверх серверного состояния
       const merged = queue.current.reduce(applyOp, s);
       setState(merged);
-      ls.set(CACHE_KEY, s);
       setLoadError(null);
     } catch (e) {
-      const cached = ls.get<AppState>(CACHE_KEY);
+      const cached = ls.get<AppState>(keys.current.cache);
       if (cached) {
         setState((cur) => cur ?? queue.current.reduce(applyOp, cached));
         setSyncStatus('offline');
       } else setLoadError(e instanceof Error ? e.message : 'Нет связи');
     }
   }, []);
+
+  const toastRef = useRef(toast);
+  const reloadRef = useRef(reload);
+  useEffect(() => {
+    toastRef.current = toast;
+    reloadRef.current = reload;
+  }, [toast, reload]);
+
+  // актуальное состояние (вместе с неотправленными операциями) — в кэш устройства для офлайна.
+  // Повторное применение очереди поверх него идемпотентно.
+  useEffect(() => {
+    if (state) ls.set(keys.current.cache, state);
+  }, [state]);
 
   // ---------- синхронизация ----------
   const flushRef = useRef<() => Promise<void>>(() => Promise.resolve());
@@ -174,9 +189,14 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
       const res = (await r.json()) as SyncResponse;
       const done = new Set([...res.applied, ...res.failed.map((f) => f.op_id)]);
       queue.current = queue.current.filter((o) => !done.has(o.op_id));
-      ls.set(QUEUE_KEY, queue.current);
+      ls.set(keys.current.queue, queue.current);
       setSyncStatus(res.failed.length ? 'error' : queue.current.length ? 'pending' : 'synced');
-      if (res.failed.length) console.warn('sync failed', res.failed);
+      if (res.failed.length) {
+        // сервер отклонил изменение — не делаем вид, что оно сохранено: показываем и перечитываем правду с сервера
+        console.warn('sync failed', res.failed);
+        toastRef.current('Не всё сохранилось. Обновляю данные с сервера');
+        void reloadRef.current();
+      }
     } catch {
       setSyncStatus(navigator.onLine ? 'error' : 'offline');
     } finally {
@@ -189,10 +209,16 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
   }, [flush]);
 
   useEffect(() => {
-    queue.current = ls.get<QueuedOp[]>(QUEUE_KEY) ?? [];
-    const cached = ls.get<AppState>(CACHE_KEY);
-    if (cached) setState(queue.current.reduce(applyOp, cached));
-    void reload().then(() => flush());
+    void (async () => {
+      const { data } = await supabaseBrowser().auth.getSession();
+      const uid = data.session?.user.id ?? 'anon';
+      keys.current = { cache: `${CACHE_KEY}:${uid}`, queue: `${QUEUE_KEY}:${uid}` };
+      queue.current = ls.get<QueuedOp[]>(keys.current.queue) ?? [];
+      const cached = ls.get<AppState>(keys.current.cache);
+      if (cached) setState(queue.current.reduce(applyOp, cached));
+      await reload();
+      void flush();
+    })();
     const onFocus = () => {
       setNow(new Date());
       void flush();
@@ -214,7 +240,7 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
     (op: SyncOp) => {
       const q: QueuedOp = { ...op, op_id: uuid() } as QueuedOp;
       queue.current = [...queue.current, q];
-      ls.set(QUEUE_KEY, queue.current);
+      ls.set(keys.current.queue, queue.current);
       setState((s) => (s ? applyOp(s, q) : s));
       setSyncStatus('pending');
       if (flushTimer.current) clearTimeout(flushTimer.current);
@@ -307,7 +333,8 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
       if (!state || !session) return;
       const done = session.steps_done.includes(i);
       const steps = done ? session.steps_done.filter((x) => x !== i) : [...session.steps_done, i].sort();
-      patchSession({ steps_done: steps });
+      const full = session.mode === 'full' && [0, 1, 2, 3, 4].every((x) => steps.includes(x));
+      patchSession(full && !session.full ? { steps_done: steps, full: true } : { steps_done: steps });
       const existing = state.activities.find((a) => a.kind === 'ritual_step' && a.date === today && a.ref === String(i));
       if (done && existing) removeActivity(existing.id);
       if (!done && !existing) {

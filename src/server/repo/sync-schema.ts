@@ -55,7 +55,7 @@ export const sessionFieldsSchema = z.object({
   frame_id: text(100).optional(),
   challenge_id: text(100).optional(),
   twister_id: text(100).optional(),
-  content_version: z.number().int().min(1).max(1000).optional(),
+  content_version: z.number().int().min(0).max(1000).optional(), // 0 = импорт из legacy
   steps_done: stepsDoneSchema.optional(),
   breath: z.number().int().min(0).max(100_000).nullable().optional(),
   fillers: z.number().int().min(0).max(10_000).nullable().optional(),

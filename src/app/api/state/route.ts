@@ -12,7 +12,7 @@ import {
   rowToSession,
   rowToTakeSummary,
 } from '@/server/repo/mappers';
-import { daysAgoISO, fetchAll } from '@/server/repo/queries';
+import { fetchAll } from '@/server/repo/queries';
 
 export const runtime = 'nodejs';
 
@@ -21,19 +21,17 @@ export async function GET() {
   if ('error' in auth) return auth.error;
   const { user, db } = auth;
 
-  const since400 = daysAgoISO(400);
   const since60 = new Date(Date.now() - 61 * 86_400_000).toISOString();
 
   try {
     const [profile, sessions, activities, takes, events, plan, achievements] = await Promise.all([
       ensureProfile(db, user.id),
-      fetchAll(() => db.from('sessions').select('*').eq('user_id', user.id).gte('date', since400).order('date', { ascending: true })),
+      fetchAll(() => db.from('sessions').select('*').eq('user_id', user.id).order('date', { ascending: true })),
       fetchAll(() =>
         db
           .from('activities')
           .select('*')
           .eq('user_id', user.id)
-          .gte('date', since400)
           .order('date', { ascending: true })
           .order('created_at', { ascending: true })
           .order('id', { ascending: true }),

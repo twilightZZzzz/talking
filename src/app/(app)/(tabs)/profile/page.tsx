@@ -50,8 +50,9 @@ export default function ProfilePage() {
     }
     await supabaseBrowser().auth.signOut();
     try {
-      localStorage.removeItem('rech-state-v2');
-      localStorage.removeItem('rech-queue-v2');
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith('rech-state-v2') || k.startsWith('rech-queue-v2'))
+        .forEach((k) => localStorage.removeItem(k));
     } catch {}
     window.location.href = '/login';
   }

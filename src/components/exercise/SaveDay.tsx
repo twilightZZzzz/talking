@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useApp } from '@/client/store';
 import { getChallenge } from '@/domain/content';
 import { levelFor } from '@/domain/gamification/levels';
+import { localHour } from '@/domain/calendar';
 import { Mascot } from '@/components/ui/Mascot';
 import { Bar } from '@/components/ui/Wave';
 import { Icon } from '@/components/ui/Icon';
@@ -40,7 +41,7 @@ export function SaveDay() {
       note: note.trim() || null,
       full: isFull || session.full,
       saved_at: session.saved_at ?? now.toISOString(),
-      saved_hour: session.saved_hour ?? now.getHours(),
+      saved_hour: session.saved_hour ?? localHour(now, state.profile.timezone),
     });
     if (!state.activities.some((a) => a.kind === 'ritual_step' && a.date === today && a.ref === '3'))
       addActivity({ kind: 'ritual_step', ref: '3', duration_s: 180, meta: {} });
@@ -165,7 +166,7 @@ export function SaveDay() {
         <label className="label" htmlFor="note">
           Где ушёл в сторону и почему
         </label>
-        <textarea id="note" className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Например: на примере начал рассказывать вторую историю" />
+        <textarea id="note" className="input" maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Например: на примере начал рассказывать вторую историю" />
       </div>
 
       <button className="btn btn-mint btn-lg btn-block" onClick={save}>

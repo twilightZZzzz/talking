@@ -34,7 +34,7 @@ const STAGES: { key: Stage; title: string }[] = [
 
 /** Дубль: запись (или файл) → загрузка → распознавание → разбор → карточка. Можно повторять сколько угодно. */
 export function SpeakingFlow(p: Props) {
-  const { today, upsertTake, state, toast } = useApp();
+  const { today, upsertTake, state, toast, reload } = useApp();
   const [phase, setPhase] = useState<Phase>('idle');
   const [stage, setStage] = useState<Stage>('upload');
   const [progress, setProgress] = useState(0);
@@ -61,6 +61,8 @@ export function SpeakingFlow(p: Props) {
         upsertTake(stripWords(t));
         setPhase('review');
         p.onAnalyzed?.(t);
+        // XP, минуты и профиль проблем считаются из activities/events — подтягиваем свежие с сервера
+        void reload();
         setPending(null);
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'Что-то пошло не так';
@@ -72,7 +74,7 @@ export function SpeakingFlow(p: Props) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [take, upsertTake, p.onAnalyzed],
+    [take, upsertTake, p.onAnalyzed, reload],
   );
 
   const submit = useCallback(

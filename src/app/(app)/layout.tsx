@@ -30,6 +30,9 @@ function Effects() {
     } catch {}
   }, [state.profile.theme]);
   useEffect(() => {
+    if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) void navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }, []);
+  useEffect(() => {
     if (!state.profile.onboarded && path !== '/onboarding') router.replace('/onboarding');
   }, [state.profile.onboarded, path, router]);
   return null;
