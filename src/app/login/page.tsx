@@ -6,13 +6,29 @@ import { Mascot } from '@/components/ui/Mascot';
 import s from './login.module.css';
 
 export default function LoginPage() {
-  const [step, setStep] = useState<'email' | 'code'>('email');
+  const [step, setStep] = useState<'start' | 'email' | 'code'>('start');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // ошибка из /auth/callback приходит в ?error=
+  const [error, setError] = useState<string | null>(() =>
+    typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('error'),
+  );
   const [wait, setWait] = useState(0);
   const codeRef = useRef<HTMLInputElement>(null);
+
+  async function google() {
+    setBusy(true);
+    setError(null);
+    const { error } = await supabaseBrowser().auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback`, queryParams: { prompt: 'select_account' } },
+    });
+    if (error) {
+      setBusy(false);
+      setError(/not enabled|unsupported provider/i.test(error.message) ? 'Вход через Google ещё не включён в Supabase' : humanize(error.message));
+    }
+  }
 
   useEffect(() => {
     if (!wait) return;
@@ -52,11 +68,20 @@ export default function LoginPage() {
       <div className={s.hero}>
         <Mascot mood={step === 'code' ? 'wow' : 'happy'} size={120} bob />
         <div className="bubble" style={{ maxWidth: 220 }}>
-          {step === 'email' ? 'Привет! Я Мик. Каждый день — на шаг яснее.' : 'Код уже в почте. Жду!'}
+          {step === 'code' ? 'Код уже в почте. Жду!' : 'Привет! Я Мик. Каждый день — на шаг яснее.'}
         </div>
       </div>
       <h1 className={s.title}>Утренняя речь</h1>
-      {step === 'email' ? (
+      {step === 'start' ? (
+        <div className="stack">
+          <button className="btn btn-lg btn-block" onClick={() => void google()} disabled={busy}>
+            <GoogleIcon /> {busy ? 'Открываю Google…' : 'Войти через Google'}
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setStep('email')}>
+            Войти по коду из письма
+          </button>
+        </div>
+      ) : step === 'email' ? (
         <form className="stack" onSubmit={sendCode}>
           <label className="label" htmlFor="email">
             Email
@@ -109,7 +134,7 @@ export default function LoginPage() {
             {busy ? 'Проверяю…' : 'Войти'}
           </button>
           <div className="row" style={{ justifyContent: 'space-between' }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => { setStep('email'); setCode(''); setError(null); }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => { setStep('start'); setCode(''); setError(null); }}>
               Другой email
             </button>
             <button className="btn btn-ghost btn-sm" disabled={wait > 0 || busy} onClick={() => void sendCode()}>
@@ -124,6 +149,17 @@ export default function LoginPage() {
         </p>
       )}
     </main>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden>
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+      <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
+    </svg>
   );
 }
 
